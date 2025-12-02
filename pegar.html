@@ -1,0 +1,423 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Bell, 
+  Briefcase, 
+  Calendar, 
+  CheckCircle2, 
+  Clock, 
+  LayoutDashboard, 
+  Plus, 
+  Settings, 
+  Trash2, 
+  X 
+} from 'lucide-react';
+
+// Cores e temas (Flat Design - Sem gradientes)
+const THEME = {
+  bg: "bg-slate-900",
+  sidebar: "bg-slate-950",
+  card: "bg-slate-800",
+  textMain: "text-slate-100",
+  textMuted: "text-slate-400",
+  accent: "bg-blue-600 hover:bg-blue-700",
+  danger: "text-red-400 hover:text-red-300",
+  border: "border-slate-700"
+};
+
+const COMPANIES = [
+  { id: 'fullstack', name: 'Dev Fullstack (Empresa A)', color: 'bg-emerald-600' },
+  { id: 'frontend', name: 'Dev Frontend (Empresa B)', color: 'bg-indigo-600' },
+  { id: 'personal', name: 'Pessoal', color: 'bg-slate-600' }
+];
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [items, setItems] = useState([
+    { id: 1, title: 'Daily Scrum', type: 'meeting', time: '09:00', companyId: 'fullstack', done: false, alert: true },
+    { id: 2, title: 'Refatorar Componente de Login', type: 'task', time: '14:30', companyId: 'frontend', done: false, alert: false },
+    { id: 3, title: 'Deploy Backend', type: 'task', time: '16:00', companyId: 'fullstack', done: true, alert: true },
+  ]);
+  
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+
+  // Simulação do relógio para verificar alarmes
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      setCurrentTime(now);
+      
+      // Lógica simples de alarme (apenas visual aqui)
+      items.forEach(item => {
+        if (item.alert && !item.done && item.time === now) {
+          // No Electron real, aqui chamariamos window.electron.notification.show()
+          console.log(`ALARME TOCANDO PARA: ${item.title}`);
+        }
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [items]);
+
+  const addNewItem = (newItem) => {
+    setItems([...items, { ...newItem, id: Date.now(), done: false }]);
+    setShowAddModal(false);
+  };
+
+  const toggleDone = (id) => {
+    setItems(items.map(item => item.id === id ? { ...item, done: !item.done } : item));
+  };
+
+  const deleteItem = (id) => {
+    setItems(items.filter(item => item.id !== id));
+  };
+
+  const renderContent = () => {
+    switch(activeTab) {
+      case 'dashboard': return <DashboardView items={items} toggleDone={toggleDone} deleteItem={deleteItem} />;
+      case 'meetings': return <ListView items={items.filter(i => i.type === 'meeting')} toggleDone={toggleDone} deleteItem={deleteItem} title="Minhas Reuniões" />;
+      case 'tasks': return <ListView items={items.filter(i => i.type === 'task')} toggleDone={toggleDone} deleteItem={deleteItem} title="Tarefas do Dia" />;
+      case 'settings': return <SettingsView />;
+      default: return <DashboardView items={items} />;
+    }
+  };
+
+  return (
+    <div className={`flex h-screen w-full ${THEME.bg} text-slate-200 font-sans selection:bg-blue-500 selection:text-white`}>
+      {/* Navbar Superior (Como solicitado) */}
+      <div className="flex flex-col w-full h-full">
+        <header className={`h-16 ${THEME.sidebar} border-b ${THEME.border} flex items-center justify-between px-6 select-none`}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white">
+              MY
+            </div>
+            <span className="font-semibold text-lg tracking-tight">MyDay<span className="text-blue-500">Electron</span></span>
+          </div>
+
+          <nav className="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+            <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutDashboard size={18} />} label="Visão Geral" />
+            <NavButton active={activeTab === 'meetings'} onClick={() => setActiveTab('meetings')} icon={<Calendar size={18} />} label="Reuniões" />
+            <NavButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')} icon={<CheckCircle2 size={18} />} label="Tarefas" />
+            <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={18} />} label="Config" />
+          </nav>
+
+          <div className="flex items-center gap-4">
+            <div className="text-2xl font-mono font-medium text-slate-400">
+              {currentTime}
+            </div>
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className={`${THEME.accent} text-white p-2 rounded-lg transition-all active:scale-95 shadow-lg shadow-blue-900/20`}
+            >
+              <Plus size={20} />
+            </button>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-auto p-6">
+          <div className="max-w-5xl mx-auto">
+            {renderContent()}
+          </div>
+        </main>
+      </div>
+
+      {/* Modal de Adicionar */}
+      {showAddModal && <AddItemModal onClose={() => setShowAddModal(false)} onSave={addNewItem} />}
+    </div>
+  );
+}
+
+// Componentes Auxiliares
+
+function NavButton({ active, onClick, icon, label }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+        active 
+          ? 'bg-slate-700 text-white shadow-sm' 
+          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+      }`}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function DashboardView({ items, toggleDone, deleteItem }) {
+  const pendingMeetings = items.filter(i => i.type === 'meeting' && !i.done);
+  const pendingTasks = items.filter(i => i.type === 'task' && !i.done);
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div>
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Calendar className="text-blue-500" /> Próximas Reuniões
+        </h2>
+        {pendingMeetings.length === 0 ? (
+          <EmptyState message="Nenhuma reunião pendente." />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pendingMeetings.map(item => <ItemCard key={item.id} item={item} onToggle={toggleDone} onDelete={deleteItem} />)}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-slate-800 pt-8">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <CheckCircle2 className="text-emerald-500" /> Lista de Tarefas
+        </h2>
+        {pendingTasks.length === 0 ? (
+          <EmptyState message="Tudo feito por hoje!" />
+        ) : (
+          <div className="space-y-3">
+             {pendingTasks.map(item => <ItemCard key={item.id} item={item} onToggle={toggleDone} onDelete={deleteItem} isListMode />)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ListView({ items, toggleDone, deleteItem, title }) {
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <h2 className="text-2xl font-bold mb-6">{title}</h2>
+      <div className="space-y-3">
+        {items.length === 0 ? (
+          <EmptyState message="Lista vazia." />
+        ) : (
+          items.map(item => <ItemCard key={item.id} item={item} onToggle={toggleDone} onDelete={deleteItem} isListMode />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ItemCard({ item, onToggle, onDelete, isListMode }) {
+  const company = COMPANIES.find(c => c.id === item.companyId) || COMPANIES[2];
+  
+  const cardClasses = `
+    group relative overflow-hidden
+    ${THEME.card} border ${THEME.border} rounded-xl p-4 
+    transition-all hover:border-slate-600
+    ${item.done ? 'opacity-50' : ''}
+    ${isListMode ? 'flex items-center gap-4' : 'flex flex-col gap-3'}
+  `;
+
+  return (
+    <div className={cardClasses}>
+      {/* Indicador lateral da empresa */}
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${company.color}`} />
+      
+      <button 
+        onClick={() => onToggle(item.id)}
+        className={`
+          flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors
+          ${item.done ? 'bg-emerald-500 border-emerald-500 text-slate-900' : 'border-slate-500 hover:border-emerald-400 text-transparent'}
+        `}
+      >
+        <CheckCircle2 size={14} fill="currentColor" />
+      </button>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded ${company.color} bg-opacity-20 text-slate-300 border border-white/10`}>
+            {company.name}
+          </span>
+          {item.alert && <Bell size={12} className="text-yellow-500" />}
+        </div>
+        <h3 className={`font-medium truncate ${item.done ? 'line-through text-slate-500' : 'text-slate-100'}`}>
+          {item.title}
+        </h3>
+        <div className="flex items-center gap-1 text-sm text-slate-400 mt-0.5">
+          <Clock size={12} />
+          <span>{item.time}</span>
+        </div>
+      </div>
+
+      <button 
+        onClick={() => onDelete(item.id)}
+        className="opacity-0 group-hover:opacity-100 p-2 text-slate-500 hover:text-red-400 transition-all"
+      >
+        <Trash2 size={18} />
+      </button>
+    </div>
+  );
+}
+
+function AddItemModal({ onClose, onSave }) {
+  const [formData, setFormData] = useState({
+    title: '',
+    time: '',
+    type: 'task',
+    companyId: 'fullstack',
+    alert: true
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.title || !formData.time) return;
+    onSave(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+      <div className={`${THEME.card} w-full max-w-md rounded-2xl border ${THEME.border} shadow-2xl p-6`}>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold">Novo Item</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={20} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">O que vamos fazer?</label>
+            <input 
+              autoFocus
+              type="text" 
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+              placeholder="Ex: Reunião de Alinhamento"
+              value={formData.title}
+              onChange={e => setFormData({...formData, title: e.target.value})}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Horário</label>
+              <input 
+                type="time" 
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-blue-500"
+                value={formData.time}
+                onChange={e => setFormData({...formData, time: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Tipo</label>
+              <select 
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-blue-500"
+                value={formData.type}
+                onChange={e => setFormData({...formData, type: e.target.value})}
+              >
+                <option value="task">Tarefa</option>
+                <option value="meeting">Reunião</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Contexto / Empresa</label>
+            <div className="grid grid-cols-1 gap-2">
+              {COMPANIES.map(company => (
+                <label 
+                  key={company.id}
+                  className={`
+                    flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all
+                    ${formData.companyId === company.id ? 'bg-slate-700 border-blue-500' : 'bg-slate-900 border-slate-800 hover:bg-slate-800'}
+                  `}
+                >
+                  <input 
+                    type="radio" 
+                    name="company" 
+                    value={company.id}
+                    checked={formData.companyId === company.id}
+                    onChange={() => setFormData({...formData, companyId: company.id})}
+                    className="hidden"
+                  />
+                  <div className={`w-3 h-3 rounded-full ${company.color}`} />
+                  <span className="text-sm">{company.name}</span>
+                  {formData.companyId === company.id && <CheckCircle2 size={16} className="ml-auto text-blue-500" />}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-2">
+            <input 
+              type="checkbox" 
+              id="alertCheck"
+              checked={formData.alert}
+              onChange={e => setFormData({...formData, alert: e.target.checked})}
+              className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="alertCheck" className="text-sm text-slate-300 select-none cursor-pointer">
+              Alertar quando chegar a hora?
+            </label>
+          </div>
+
+          <button 
+            type="submit" 
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-all mt-4"
+          >
+            Adicionar ao Dia
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function SettingsView() {
+  return (
+    <div className="max-w-xl animate-in fade-in duration-300">
+      <h2 className="text-2xl font-bold mb-6">Configurações</h2>
+      
+      <div className={`${THEME.card} border ${THEME.border} rounded-xl p-6 space-y-6`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-medium">Iniciar com o Windows</h3>
+            <p className="text-sm text-slate-400">Abrir o app automaticamente ao ligar o PC</p>
+          </div>
+          <div className="w-12 h-6 bg-blue-600 rounded-full relative cursor-pointer">
+             <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow" />
+          </div>
+        </div>
+
+        <div className="pt-6 border-t border-slate-700">
+          <h3 className="font-medium mb-3">Som do Alarme</h3>
+          <p className="text-sm text-slate-400 mb-4">Escolha um arquivo do seu PC para tocar.</p>
+          
+          <div className="flex gap-2">
+            <input 
+              type="text" 
+              disabled 
+              value="C:\Users\Dev\Music\alert-sound.mp3"
+              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-400"
+            />
+            <button className="bg-slate-700 hover:bg-slate-600 px-4 rounded-lg text-sm font-medium transition-colors">
+              Escolher Arquivo
+            </button>
+          </div>
+        </div>
+
+        <div className="pt-6 border-t border-slate-700">
+          <h3 className="font-medium mb-3">Gerenciar Empresas</h3>
+          <div className="space-y-2">
+            {COMPANIES.map(c => (
+              <div key={c.id} className="flex items-center justify-between bg-slate-900 p-3 rounded-lg border border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${c.color}`} />
+                  <span className="text-sm">{c.name}</span>
+                </div>
+                <button className="text-slate-500 hover:text-slate-300"><Settings size={14} /></button>
+              </div>
+            ))}
+            <button className="w-full py-2 border border-dashed border-slate-600 rounded-lg text-sm text-slate-400 hover:text-slate-200 hover:border-slate-400 transition-all">
+              + Adicionar Empresa
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ message }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-slate-500 bg-slate-800/50 rounded-xl border border-dashed border-slate-700">
+      <Briefcase size={48} className="mb-4 opacity-50" />
+      <p>{message}</p>
+    </div>
+  );
+}
